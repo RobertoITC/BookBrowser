@@ -14,7 +14,7 @@ const Navbar: React.FC = () => {
             <Link to="/" className="text-xl font-bold text-white">
                 Book Browser
             </Link>
-            <ul className="flex space-x-6">
+            <ul className="flex space-x-6 items-center">
                 <li><Link to="/" className="text-white hover:underline">Home</Link></li>
                 <li><Link to="/search" className="text-white hover:underline">Search</Link></li>
                 {user ? (

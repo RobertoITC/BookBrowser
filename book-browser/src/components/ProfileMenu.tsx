@@ -25,7 +25,7 @@ const ProfileMenu: React.FC = () => {
 return (
     <div className="relative" ref={ref}>
         <button
-            className="focus:outline-none"
+            className="ring-white ring-1 focus:ring-3 focus:white rounded-full p-2"
             onClick={() => setOpen(o => !o)}
         >
             {user.avatarUrl
