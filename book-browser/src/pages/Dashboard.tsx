@@ -5,7 +5,6 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { ReviewsContext } from '../context/ReviewsContext';
 import { getBookById } from '../services/googleBooks';
 import type { Book } from '../types/Book';
-import type { Review } from '../types/Review';
 import BookCard from '../components/BookCard';
 
 const Dashboard: React.FC = () => {
