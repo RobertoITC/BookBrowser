@@ -1,7 +1,19 @@
-
-
 // src/contexts/FavoritesContext.tsx
-import React, { createContext, useState, useEffect, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode
+} from 'react';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  setDoc,
+} from 'firebase/firestore';
+import { AuthContext } from './AuthContext';
+import { db } from '../services/firebaseConfig';
 
 interface FavoritesContextType {
   favorites: string[];
@@ -9,6 +21,7 @@ interface FavoritesContextType {
   removeFavorite: (bookId: string) => void;
   toggleFavorite: (bookId: string) => void;
   isFavorite: (bookId: string) => boolean;
+  logout: () => Promise<void>;
 }
 
 export const FavoritesContext = createContext<FavoritesContextType>({
@@ -17,6 +30,7 @@ export const FavoritesContext = createContext<FavoritesContextType>({
   removeFavorite: () => {},
   toggleFavorite: () => {},
   isFavorite: () => false,
+  logout: async () => {},
 });
 
 interface FavoritesProviderProps {
@@ -24,20 +38,55 @@ interface FavoritesProviderProps {
 }
 
 export const FavoritesProvider: React.FC<FavoritesProviderProps> = ({ children }) => {
+  const { user, logout: authLogout } = useContext(AuthContext);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [initialized, setInitialized] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('favorites');
-    if (stored) {
-      setFavorites(JSON.parse(stored));
+  const updateFavorites = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.id), { favorites });
+    } catch (err) {
+      console.error('Error writing favorites to Firestore:', err);
     }
-  }, []);
+  };
 
-  // Persist favorites to localStorage whenever they change
+  // Fetch or clear favorites when user changes or logout is triggered
   useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
+    const fetchFavorites = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.id));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setFavorites(data.favorites || []);
+          } else {
+            setFavorites([]);
+            await setDoc(doc(db, 'users', user.id), { favorites: [] });
+          }
+        } catch (e) {
+          console.error('Error fetching favorites from Firestore:', e);
+          setFavorites([]);
+        }
+      } else if (isLoggingOut) {
+        // Only clear on explicit logout
+        setFavorites([]);
+        setIsLoggingOut(false);
+      }
+      setInitialized(true);
+    };
+
+    setInitialized(false);
+    fetchFavorites();
+  }, [user, isLoggingOut]);
+
+  // Sync favorites to Firestore when changed (after initial load)
+  useEffect(() => {
+    if (user && initialized) {
+      updateFavorites();
+    }
+  }, [favorites, user, initialized]);
 
   const addFavorite = (bookId: string) => {
     setFavorites(prev => (prev.includes(bookId) ? prev : [...prev, bookId]));
@@ -57,8 +106,15 @@ export const FavoritesProvider: React.FC<FavoritesProviderProps> = ({ children }
     return favorites.includes(bookId);
   };
 
+  const logout = async () => {
+    setIsLoggingOut(true);
+    await authLogout();
+  };
+
   return (
-    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, toggleFavorite, isFavorite }}>
+    <FavoritesContext.Provider
+      value={{ favorites, addFavorite, removeFavorite, toggleFavorite, isFavorite, logout }}
+    >
       {children}
     </FavoritesContext.Provider>
   );

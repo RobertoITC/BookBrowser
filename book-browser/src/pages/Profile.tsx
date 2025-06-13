@@ -1,38 +1,44 @@
 // src/pages/Profile/Profile.tsx
 import React, { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { FavoritesContext } from '../context/FavoritesContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig.ts';
 import { getBookById } from '../services/googleBooks';
 import type { Book } from '../types/Book';
 import BookCard from '../components/BookCard';
 
 const Profile: React.FC = () => {
     const { user, logout } = useContext(AuthContext);
-    const { favorites } = useContext(FavoritesContext);
-    const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([]);
+    const [favorites, setFavorites] = useState<Book[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchFavorites = async () => {
-            if (favorites.length === 0) {
-                setFavoriteBooks([]);
-                return;
-            }
+        const fetchUserFavorites = async () => {
+            if (!user) return;
             setLoading(true);
+            setError(null);
             try {
-                const books = await Promise.all(
-                    favorites.map(id => getBookById(id))
-                );
-                setFavoriteBooks(books);
+                const userSnap = await getDoc(doc(db, 'users', user.id));
+                if (!userSnap.exists()) {
+                    setFavorites([]);
+                    return;
+                }
+                const favIds: string[] = userSnap.data()?.favorites || [];
+                if (favIds.length === 0) {
+                    setFavorites([]);
+                    return;
+                }
+                const books = await Promise.all(favIds.map(id => getBookById(id)));
+                setFavorites(books);
             } catch (e) {
                 setError((e as Error).message);
             } finally {
                 setLoading(false);
             }
         };
-        fetchFavorites();
-    }, [favorites]);
+        fetchUserFavorites();
+    }, [user]);
 
     if (!user) {
         return (
@@ -79,12 +85,12 @@ const Profile: React.FC = () => {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    {favoriteBooks.map(book => (
+                    {favorites.map(book => (
                         <BookCard key={book.id} book={book} />
                     ))}
                 </div>
 
-                {!loading && favoriteBooks.length === 0 && (
+                {!loading && favorites.length === 0 && (
                     <p className="text-center text-gray-700">
                         You haven’t added any favorites yet.
                     </p>

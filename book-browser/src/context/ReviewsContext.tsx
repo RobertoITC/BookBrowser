@@ -1,50 +1,39 @@
-// src/contexts/ReviewsContext.tsx
-import React, { createContext, useState, useEffect, type ReactNode } from 'react';
-import type { Review } from '../types/Review';
+import React, { createContext, useState, type ReactNode, useContext } from "react";
+        import type { Review } from "../types/Review";
+        import { addReview, onReviewsForBook } from "../types/Review";
+        import { AuthContext } from "./AuthContext";
 
-interface ReviewsContextType {
-    reviewsByBook: Record<string, Review[]>;
-    addReview: (bookId: string, review: Review) => void;
-}
-
-export const ReviewsContext = createContext<ReviewsContextType>({
-    reviewsByBook: {},
-    addReview: () => {},
-});
-
-export const ReviewsProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-    const [reviewsByBook, setReviewsByBook] = useState<Record<string, Review[]>>({});
-
-    // Load all reviews from localStorage on mount
-    useEffect(() => {
-        const stored = localStorage.getItem('all_reviews');
-        if (stored) {
-            try {
-                setReviewsByBook(JSON.parse(stored));
-            } catch {
-                setReviewsByBook({});
-            }
+        interface ReviewsContextType {
+            reviewsByBook: Record<string, Review[]>;
+            addReviewForBook: (bookId: string, rating: number, comment: string) => Promise<void>;
+            subscribe: (bookId: string) => void;
         }
-    }, []);
 
-    // Persist whenever reviews change
-    useEffect(() => {
-        localStorage.setItem('all_reviews', JSON.stringify(reviewsByBook));
-    }, [reviewsByBook]);
-
-    const addReview = (bookId: string, review: Review) => {
-        setReviewsByBook(prev => {
-            const bookReviews = prev[bookId] || [];
-            return {
-                ...prev,
-                [bookId]: [review, ...bookReviews],
-            };
+        export const ReviewsContext = createContext<ReviewsContextType>({
+            reviewsByBook: {},
+            addReviewForBook: async () => {},
+            subscribe: () => {}
         });
-    };
 
-    return (
-        <ReviewsContext.Provider value={{ reviewsByBook, addReview }}>
-            {children}
-        </ReviewsContext.Provider>
-    );
-};
+        export const ReviewsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+            const { user } = useContext(AuthContext);
+            const [reviewsByBook, setReviewsByBook] = useState<Record<string, Review[]>>({});
+
+            const addReviewForBook = async (bookId: string, rating: number, comment: string) => {
+                if (!user) throw new Error("Not logged in");
+                await addReview({ bookId, userId: user.id, rating, comment });
+            };
+
+            const subscribe = (bookId: string) => {
+                const unsubscribe = onReviewsForBook(bookId, revs => {
+                    setReviewsByBook(prev => ({ ...prev, [bookId]: revs }));
+                });
+                return unsubscribe;
+            };
+
+            return (
+                <ReviewsContext.Provider value={{ reviewsByBook, addReviewForBook, subscribe }}>
+                    {children}
+                </ReviewsContext.Provider>
+            );
+        };

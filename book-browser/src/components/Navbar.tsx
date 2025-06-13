@@ -3,6 +3,8 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ProfileMenu from '../components/ProfileMenu';
+import {LogoutButton} from '../components/LogoutButton';
+import {LoginButton} from '../components/LoginButton';
 import '../index.css';
 
 const Navbar: React.FC = () => {
@@ -23,10 +25,20 @@ const Navbar: React.FC = () => {
                         <li><ProfileMenu /></li>
                     </>
                 ) : (
-                    <li><Link to="/login" className="text-white hover:underline">Log In</Link></li>
+                    <>
+                        <div>
+
+                            {user ? (
+                                <LogoutButton />
+                            ) : (
+                                <LoginButton />
+                            )}
+                        </div>
+                    </>
                 )}
 
             </ul>
+            <LogoutButton.Confirmation />
         </nav>
     );
 };
